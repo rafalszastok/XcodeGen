@@ -37,8 +37,8 @@ class SourceGenerator {
         return object
     }
 
-    func getAllSourceFiles(targetType: PBXProductType, sources: [TargetSource]) throws -> [SourceFile] {
-        return try sources.flatMap { try getSourceFiles(targetType: targetType, targetSource: $0, path: project.basePath + $0.path) }
+    func getAllSourceFiles(targetType: PBXProductType, sources: [TargetSource], platform: Platform) throws -> [SourceFile] {
+        return try sources.flatMap { try getSourceFiles(targetType: targetType, targetSource: $0, path: project.basePath + $0.path, platform: platform) }
     }
 
     // get groups without build files. Use for Project.fileGroups
@@ -436,12 +436,27 @@ class SourceGenerator {
         return (allSourceFiles, groups)
     }
 
+    private func excludePatternsForPlatform(_ platform: Platform) throws
+            -> NSRegularExpression {
+
+        let pattern = "\\/\(platform.rawValue)\\/"
+        return try NSRegularExpression(pattern: pattern)
+    }
+
     /// creates source files
-    private func getSourceFiles(targetType: PBXProductType, targetSource: TargetSource, path: Path) throws -> [SourceFile] {
+    private func getSourceFiles(targetType: PBXProductType, targetSource: TargetSource, path: Path, platform: Platform? = nil) throws -> [SourceFile] {
 
         // generate excluded paths
         targetSourceExcludePaths = getSourceExcludes(targetSource: targetSource)
         excludePatterns = targetSource.excludePatterns
+
+        if let platform = platform {
+            var platforms = Set(Platform.all)
+            platforms.remove(platform)
+            excludePatterns += try platforms.map({
+                try excludePatternsForPlatform($0)
+            })
+        }
 
         let type = targetSource.type ?? (path.isFile || path.extension != nil ? .file : .group)
         let createIntermediateGroups = project.options.createIntermediateGroups
