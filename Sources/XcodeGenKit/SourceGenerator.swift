@@ -20,6 +20,7 @@ class SourceGenerator {
     private let project: Project
     var addObjectClosure: (PBXObject) -> Void
     var targetSourceExcludePaths: Set<Path> = []
+    var excludePatterns: [NSRegularExpression] = []
     var defaultExcludedFiles = [
         ".DS_Store",
     ]
@@ -277,10 +278,23 @@ class SourceGenerator {
         )
     }
 
+    func isExcludedPattern(_ path: Path) -> Bool {
+        return excludePatterns.reduce(false) {
+            (result: Bool, expression: NSRegularExpression) -> Bool in
+
+            let string: String = path.string
+            let range = NSRange(location: 0, length: string.count)
+            let matches = expression.matches(in: string, range: range)
+
+            return result || (matches.count > 0)
+         }
+    }
+
     /// Checks whether the path is not in any default or TargetSource excludes
     func isIncludedPath(_ path: Path) -> Bool {
         return !defaultExcludedFiles.contains(where: { path.lastComponent.contains($0) })
             && !targetSourceExcludePaths.contains(path)
+            && !isExcludedPattern(path)
     }
 
     /// Gets all the children paths that aren't excluded
@@ -427,6 +441,7 @@ class SourceGenerator {
 
         // generate excluded paths
         targetSourceExcludePaths = getSourceExcludes(targetSource: targetSource)
+        excludePatterns = targetSource.excludePatterns
 
         let type = targetSource.type ?? (path.isFile || path.extension != nil ? .file : .group)
         let createIntermediateGroups = project.options.createIntermediateGroups
