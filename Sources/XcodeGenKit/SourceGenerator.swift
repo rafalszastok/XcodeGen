@@ -20,6 +20,7 @@ class SourceGenerator {
     private let project: Project
     var addObjectClosure: (String, PBXObject) -> String
     var targetSourceExcludePaths: Set<Path> = []
+    var excludePatterns: [NSRegularExpression] = []
     var defaultExcludedFiles = [
         ".DS_Store",
     ]
@@ -42,8 +43,8 @@ class SourceGenerator {
         return ObjectReference(reference: reference, object: object)
     }
 
-    func getAllSourceFiles(targetType: PBXProductType, sources: [TargetSource]) throws -> [SourceFile] {
-        return try sources.flatMap { try getSourceFiles(targetType: targetType, targetSource: $0, path: project.basePath + $0.path) }
+    func getAllSourceFiles(targetType: PBXProductType, sources: [TargetSource], platform: Platform) throws -> [SourceFile] {
+        return try sources.flatMap { try getSourceFiles(targetType: targetType, targetSource: $0, path: project.basePath + $0.path, platform: platform) }
     }
 
     // get groups without build files. Use for Project.fileGroups
@@ -282,10 +283,23 @@ class SourceGenerator {
         )
     }
 
+    func isExcludedPattern(_ path: Path) -> Bool {
+        return excludePatterns.reduce(false) {
+            (result: Bool, expression: NSRegularExpression) -> Bool in
+
+            let string: String = path.string
+            let range = NSRange(location: 0, length: string.count)
+            let matches = expression.matches(in: string, range: range)
+
+            return result || (matches.count > 0)
+         }
+    }
+
     /// Checks whether the path is not in any default or TargetSource excludes
     func isIncludedPath(_ path: Path) -> Bool {
         return !defaultExcludedFiles.contains(where: { path.lastComponent.contains($0) })
             && !targetSourceExcludePaths.contains(path)
+            && !isExcludedPattern(path)
     }
 
     /// Gets all the children paths that aren't excluded
@@ -430,11 +444,26 @@ class SourceGenerator {
         return (allSourceFiles, groups)
     }
 
+    private func excludePatternsForPlatform(_ platform: Platform) throws -> NSRegularExpression {
+
+        let pattern = "\\/\(platform.rawValue)\\/"
+        return try NSRegularExpression(pattern: pattern)
+    }
+
     /// creates source files
-    private func getSourceFiles(targetType: PBXProductType, targetSource: TargetSource, path: Path) throws -> [SourceFile] {
+    private func getSourceFiles(targetType: PBXProductType, targetSource: TargetSource, path: Path, platform: Platform? = nil) throws -> [SourceFile] {
 
         // generate excluded paths
         targetSourceExcludePaths = getSourceExcludes(targetSource: targetSource)
+        excludePatterns = targetSource.excludePatterns
+
+        if let currentPlatform = platform {
+            var platforms = Set(Platform.all)
+            platforms.remove(currentPlatform)
+            excludePatterns += try platforms.map({
+                try excludePatternsForPlatform($0)
+            })
+        }
 
         let type = targetSource.type ?? (path.isFile || path.extension != nil ? .file : .group)
         let createIntermediateGroups = project.options.createIntermediateGroups
