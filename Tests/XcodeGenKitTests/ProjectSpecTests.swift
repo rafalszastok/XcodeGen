@@ -174,6 +174,20 @@ class ProjectSpecTests: XCTestCase {
                 try expectValidationError(project, .invalidTargetSchemeConfigVariant(target: "target1", configVariant: "invalidVariant", configType: .debug))
             }
 
+            $0.it("fails with invalid sdk dependency") {
+                var project = baseProject
+                project.targets = [
+                    Target(
+                        name: "target1",
+                        type: .application,
+                        platform: .iOS,
+                        dependencies: [Dependency(type: .sdk, reference: "invalidDependency")]
+                    ),
+                ]
+
+                try expectValidationError(project, .invalidSDKDependency(target: "target1", dependency: "invalidDependency"))
+            }
+
             $0.it("fails with invalid scheme") {
                 var project = baseProject
                 project.schemes = [Scheme(
@@ -203,6 +217,14 @@ class ProjectSpecTests: XCTestCase {
                 var project = baseProject
                 project.options = SpecOptions(defaultConfig: "foo")
                 try expectValidationError(project, .missingDefaultConfig(configName: "foo"))
+            }
+
+            $0.it("validates config settings format") {
+                var project = baseProject
+                project.configs = Config.defaultConfigs
+                project.settings.buildSettings = ["Debug": ["SETTING": "VALUE"], "Release": ["SETTING": "VALUE"]]
+
+                try expectValidationError(project, .invalidPerConfigSettings)
             }
 
             $0.it("allows custom scheme for aggregated target") {

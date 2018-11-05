@@ -14,6 +14,7 @@ public class PBXProjGenerator {
     var targetObjects: [String: PBXTarget] = [:]
     var targetAggregateObjects: [String: PBXAggregateTarget] = [:]
     var targetFileReferences: [String: PBXFileReference] = [:]
+    var sdkFileReferences: [String: PBXFileReference] = [:]
 
     var carthageFrameworksByPlatform: [String: Set<PBXFileElement>] = [:]
     var frameworkFiles: [PBXFileElement] = []
@@ -27,9 +28,7 @@ public class PBXProjGenerator {
     public init(project: Project) {
         self.project = project
         pbxProj = PBXProj(rootObject: nil, objectVersion: 46)
-        sourceGenerator = SourceGenerator(project: project) { [unowned self] object in
-            _ = self.addObject(object)
-        }
+        sourceGenerator = SourceGenerator(project: project, pbxProj: pbxProj)
     }
 
     func addObject<T: PBXObject>(_ object: T, context: String? = nil) -> T {
@@ -445,8 +444,6 @@ public class PBXProjGenerator {
 
                 guard let dependencyTarget = project.getTarget(dependencyTargetName) else { continue }
 
-                let dependencyFileReference = targetFileReferences[dependencyTarget.name]!
-
                 let dependecyLinkage = dependencyTarget.defaultLinkage
                 let link = dependency.link ?? (
                     (dependecyLinkage == .dynamic && target.type != .staticLibrary)
@@ -472,7 +469,7 @@ public class PBXProjGenerator {
                 if embed {
                     let embedFile = addObject(
                         PBXBuildFile(
-                            file: dependencyFileReference,
+                            file: targetFileReferences[dependencyTarget.name]!,
                             settings: getEmbedSettings(dependency: dependency, codeSign: dependency.codeSign ?? !dependencyTarget.type.isExecutable)
                         )
                     )
@@ -526,6 +523,42 @@ public class PBXProjGenerator {
 
                 let buildPath = Path(dependency.reference).parent().string.quoted
                 frameworkBuildPaths.insert(buildPath)
+            case .sdk:
+
+                var dependencyPath = Path(dependency.reference)
+                if !dependency.reference.contains("/") {
+                    switch dependencyPath.extension ?? "" {
+                    case "framework":
+                        dependencyPath = Path("System/Library/Frameworks") + dependencyPath
+                    case "tbd":
+                        dependencyPath = Path("usr/lib") + dependencyPath
+                    default: break
+                    }
+                }
+
+                let fileReference: PBXFileReference
+                if let existingFileReferences = sdkFileReferences[dependency.reference] {
+                    fileReference = existingFileReferences
+                } else {
+                    fileReference = addObject(
+                        PBXFileReference(
+                            sourceTree: .sdkRoot,
+                            name: dependencyPath.lastComponent,
+                            lastKnownFileType: Xcode.fileType(path: dependencyPath),
+                            path: dependencyPath.string
+                        )
+                    )
+                    sdkFileReferences[dependency.reference] = fileReference
+                    frameworkFiles.append(fileReference)
+                }
+
+                let buildFile = addObject(
+                    PBXBuildFile(
+                        file: fileReference,
+                        settings: getDependencyFrameworkSettings(dependency: dependency)
+                    )
+                )
+                targetFrameworkBuildFiles.append(buildFile)
 
             case .carthage:
                 guard target.type != .staticLibrary else { break }
@@ -537,13 +570,14 @@ public class PBXProjGenerator {
                 }
                 let fileReference = sourceGenerator.getFileReference(path: frameworkPath, inPath: platformPath)
 
-                let buildFile = addObject(
-                    PBXBuildFile(file: fileReference, settings: getDependencyFrameworkSettings(dependency: dependency))
-                )
-
                 carthageFrameworksByPlatform[target.platform.carthageDirectoryName, default: []].insert(fileReference)
 
-                targetFrameworkBuildFiles.append(buildFile)
+                if dependency.link ?? true {
+                    let buildFile = addObject(
+                        PBXBuildFile(file: fileReference, settings: getDependencyFrameworkSettings(dependency: dependency))
+                    )
+                    targetFrameworkBuildFiles.append(buildFile)
+                }
 
                 // Embedding handled by iterating over `carthageDependencies` below
             }
@@ -604,7 +638,7 @@ public class PBXProjGenerator {
 
         let headersBuildPhaseFiles = getBuildFilesForPhase(.headers)
         if !headersBuildPhaseFiles.isEmpty {
-            if (target.type == .framework || target.type == .dynamicLibrary) {
+            if target.type == .framework || target.type == .dynamicLibrary {
                 let headersBuildPhase = addObject(PBXHeadersBuildPhase(files: headersBuildPhaseFiles))
                 buildPhases.append(headersBuildPhase)
             } else {
@@ -946,6 +980,8 @@ public class PBXProjGenerator {
                 // don't want a dependency if it's going to be embedded or statically linked in a non-top level target
                 // in .target check we filter out targets that will embed all of their dependencies
                 switch dependency.type {
+                case .sdk:
+                    dependencies[dependency.reference] = dependency
                 case .framework, .carthage:
                     if isTopLevel || dependency.embed == nil {
                         dependencies[dependency.reference] = dependency

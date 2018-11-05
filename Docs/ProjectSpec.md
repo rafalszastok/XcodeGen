@@ -329,10 +329,9 @@ A dependency can be one of a 3 types:
 - `target: name` - links to another target
 - `framework: path` - links to a framework
 - `carthage: name` - helper for linking to a Carthage framework
+- `sdk: name` - links to a dependency with the SDK. This can either be a relative path within the sdk root or a single filename that references a framework (.framework) or lib (.tbd)
 
-**Embed options**:
-
-These only applied to `target` and `framework` dependencies.
+**Linking options**:
 
 - [ ] **embed**: **Bool** - Whether to embed the dependency. Defaults to true for application target and false for non application targets.
 - [ ] **link**: **Bool** - Whether to link the dependency. Defaults to `true` depending on the type of the dependency and the type of the target (e.g. static libraries will only link to executables by default).
@@ -363,6 +362,8 @@ targets:
       - target: MyFramework
       - framework: path/to/framework.framework
       - carthage: Result
+      - sdk: Contacts.framework
+      - sdk: libc++.tbd
   MyFramework:
     type: framework
 ```
@@ -454,7 +455,7 @@ targets:
 This is a convenience used to automatically generate schemes for a target based on different configs or included tests. If you want more control check out the top level [Scheme](#scheme).
 
 - [x] **configVariants**: **[String]** - This generates a scheme for each entry, using configs that contain the name with debug and release variants. This is useful for having different environment schemes.
-- [ ] **testTargets**: **[String]** - a list of test targets that should be included in the scheme. These will be added to the build targets and the test entries
+- [ ] **testTargets**: **[[Test Target](#test-target)]** - a list of test targets that should be included in the scheme. These will be added to the build targets and the test entries. Each entry can either be a simple string, or a [Test Target](#test-target)
 - [ ] **gatherCoverageData**: **Bool** - a boolean that indicates if this scheme should gather coverage data. This defaults to false
 - [ ] **commandLineArguments**: **[String:Bool]** - a dictionary from the argument name (`String`) to if it is enabled (`Bool`). These arguments will be added to the Test, Profile and Run scheme actions
 - [ ] **environmentVariables**: **[[Environment Variable](#environment-variable)]** or **[String:String]** - environment variables for Run, Test and Profile scheme actions. When passing a dictionary, every key-value entry maps to a corresponding variable that is enabled.
@@ -578,7 +579,12 @@ A multiline script can be written using the various YAML multiline methods, for 
 ### Test Action
 
 - [ ] **gatherCoverageData**: **Bool** - a boolean that indicates if this scheme should gather coverage data. This defaults to false
-- [ ] **targets**: **[String]** - a list of targets to test
+- [ ] **targets**: **[[Test Target](#test-target)]** - a list of targets to test. Each entry can either be a simple string, or a [Test Target](#test-target)
+
+#### Test Target
+- [x] **name**: **String** - The name of the target
+- [ ] **parallelizable**: **Bool** - Whether to run tests in parallel. Defaults to false
+- [ ] **randomExecutionOrder**: **Bool** - Whether to run tests in a random order. Defaults to false
 
 ### Archive Action
 

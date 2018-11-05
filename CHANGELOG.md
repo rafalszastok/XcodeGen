@@ -2,10 +2,16 @@
 
 ## Master
 
+## 2.0.0
+
 #### Added
 - Added `weak` linking setting for dependencies [#411](https://github.com/yonaskolb/XcodeGen/pull/411) @alvarhansen
 - Added `info` to targets for generating an `Info.plist` [#415](https://github.com/yonaskolb/XcodeGen/pull/415) @yonaskolb
 - Added `entitlements` to targets for generating an `.entitlement` file [#415](https://github.com/yonaskolb/XcodeGen/pull/415) @yonaskolb
+- Added `sdk` dependency type for linking system frameworks and libs [#430](https://github.com/yonaskolb/XcodeGen/pull/430) @yonaskolb
+- Added `parallelizable` and `randomExecutionOrder` to `Scheme` test targets in an expanded form [#434](https://github.com/yonaskolb/XcodeGen/pull/434) @yonaskolb
+- Validate incorrect config setting definitions [#431](https://github.com/yonaskolb/XcodeGen/pull/431) @yonaskolb
+- Automatically set project `SDKROOT` if there is only a single platform within the project [#433](https://github.com/yonaskolb/XcodeGen/pull/433) @yonaskolb
 
 #### Changed
 - Performance improvements for large projects [#388](https://github.com/yonaskolb/XcodeGen/pull/388) [#417](https://github.com/yonaskolb/XcodeGen/pull/417) [#416](https://github.com/yonaskolb/XcodeGen/pull/416) @yonaskolb @kastiglione
@@ -13,10 +19,14 @@
 - Upgraded to Swift 4.2 [#388](https://github.com/yonaskolb/XcodeGen/pull/388) @yonaskolb
 - Remove iOS codesigning sdk restriction in setting preset [#414](https://github.com/yonaskolb/XcodeGen/pull/414) @yonaskolb
 - Changed default project version to Xcode 10.0 and default Swift version to 4.2 [#423](https://github.com/yonaskolb/XcodeGen/pull/423) @yonaskolb
+- Added ability to not link Carthage frameworks [#432](https://github.com/yonaskolb/XcodeGen/pull/432) @yonaskolb
 
 #### Fixed
 - Fixed code signing issues [#414](https://github.com/yonaskolb/XcodeGen/pull/414) @yonaskolb
 - Fixed `TargetSource.headerVisibility` not being set in initializer [#419](https://github.com/yonaskolb/XcodeGen/pull/419) @jerrymarino
+- Fixed crash when using Xcode Legacy targets as dependencies [#427](https://github.com/yonaskolb/XcodeGen/pull/427) @dflems
+
+[Commits](https://github.com/yonaskolb/XcodeGen/compare/1.11.2...2.0.0)
 
 ## 1.11.2
 

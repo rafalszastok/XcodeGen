@@ -1,6 +1,6 @@
+import Foundation
 import ProjectSpec
 import xcodeproj
-import Foundation
 
 public class SchemeGenerator {
 
@@ -83,8 +83,8 @@ public class SchemeGenerator {
 
             guard let buildableName =
                 project.getTarget(buildTarget.target)?.filename ??
-                    project.getAggregateTarget(buildTarget.target)?.name else {
-                        fatalError("Unable to determinate \"buildableName\" for build target: \(buildTarget.target)")
+                project.getAggregateTarget(buildTarget.target)?.name else {
+                fatalError("Unable to determinate \"buildableName\" for build target: \(buildTarget.target)")
             }
             let buildableReference = XCScheme.BuildableReference(
                 referencedContainer: "container:\(project.name).xcodeproj",
@@ -95,9 +95,9 @@ public class SchemeGenerator {
             return XCScheme.BuildAction.Entry(buildableReference: buildableReference, buildFor: buildTarget.buildTypes)
         }
 
-        let testTargetNames = scheme.test?.targets ?? []
-        let testBuildTargets = testTargetNames.map {
-            Scheme.BuildTarget(target: $0, buildTypes: BuildType.testOnly)
+        let testTargets = scheme.test?.targets ?? []
+        let testBuildTargets = testTargets.map {
+            Scheme.BuildTarget(target: $0.name, buildTypes: BuildType.testOnly)
         }
 
         let testBuildTargetEntries = testBuildTargets.map(getBuildEntry)
@@ -128,8 +128,13 @@ public class SchemeGenerator {
             buildImplicitDependencies: scheme.build.buildImplicitDependencies
         )
 
-        let testables = testBuildTargetEntries.map {
-            XCScheme.TestableReference(skipped: false, buildableReference: $0.buildableReference)
+        let testables = zip(testTargets, testBuildTargetEntries).map { testTarget, testBuilEntries in
+            XCScheme.TestableReference(
+                skipped: false,
+                parallelizable: testTarget.parallelizable,
+                randomExecutionOrdering: testTarget.randomExecutionOrder,
+                buildableReference: testBuilEntries.buildableReference
+            )
         }
 
         let testCommandLineArgs = scheme.test.map { XCScheme.CommandLineArguments($0.commandLineArguments) }
